@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">    
+<head>
+<title>Lab 4</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+    .axis path,
+    .axis line {
+      fill: none;
+      stroke: #000;
+    }
+
+    .axis text {
+      font-family: Arial;
+      font-size: 12px;
+      fill: #000;
+    }
+    
+</style>
+</head>
+
+<body>
+    <h2>Global Land Average Temperature</h2>
+    <div class="controls">
+    <button id="LAT">LAT</button>
+    <button id="LAT-cumulative">LAT-cumulative</button>
+  </div>
+    
+   <div id="scatterplot_1"></div>
+
+
+
+
+
+    <script>
+        async function draw() {
+          const width = 900;
+          const height = 500;
+          const margin = { top: 30, right: 30, bottom: 60, left: 70 };
+          const innerW = width - margin.left - margin.right;
+          
+          const innerH = height - margin.top - margin.bottom;
+          
+          const parseDate = d3.timeParse("%Y-%m-%d");
+
+          const data = await d3.csv("GlobalTemperatures.csv", d => ({
+          date: parseDate(d.dt),   
+          LAT: +d.LandAverageTemperature,
+          LATU: +d.LandAverageTemperatureUncertainty,
+          LOAT: +d.LandAndOceanAverageTemperature,
+          LOATU: +d.LandAndOceanAverageTemperatureUncertainty
+          }));
+          console.log(data);
+
+          function nice10([mn, mx]) {
+          return [
+            Math.floor(mn / 10) * 10,
+            Math.ceil(mx / 10) * 10
+          ];
+          }
+    
+
+          const svg = d3.select("#scatterplot_1")
+          .append("svg")
+          .attr("width", width)
+          .attr("height", height);
+
+          const g = svg.append("g")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
+
+
+          const cxScale = d3.scaleTime()
+          .domain(d3.extent(data, d => d.date))
+          .range([0, innerW]);
+
+          const cyScale = d3.scaleLinear()
+          .domain(nice10(d3.extent(data, d => d.LAT)))
+          .range([innerH, 0]);
+
+          const rScale = d3.scaleSqrt()
+          .domain(d3.extent(data, d => d.LATU))
+          .range([10, 20]);
+
+          const colorScale = d3.scaleSequential()
+          .domain(d3.extent(data, d => d.LATU))
+          .interpolator(d3.interpolateViridis);
+
+
+          const xAxis = d3.axisBottom(cxScale)
+                  .ticks(d3.timeYear.every(20));
+
+          const yAxis = d3.axisLeft(cyScale);
+
+          const xAxisG = g.append("g")
+          .attr("class", "axis")
+          .attr("transform", `translate(0,${innerH})`)
+          .call(xAxis);
+
+          const yAxisG = g.append("g")
+          .attr("class", "axis")
+          .call(yAxis);
+
+          g.append("text")
+          .attr("x", innerW / 2)
+          .attr("y", innerH + 45)
+          .attr("text-anchor", "middle")
+          .text("Year");
+
+          const yLabel = g.append("text")
+          .attr("transform", "rotate(-90)")
+          .attr("x", -innerH / 2)
+          .attr("y", -50)
+          .attr("text-anchor", "middle")
+          .text("LAT");
+
+          g.selectAll("circle")
+          .data(data)
+          .enter()
+          .append("circle")
+          .attr("cx", function(d) { return cxScale(d.date); })
+          .attr("cy", function(d) { return cyScale(d.LAT); })
+          .attr("r",  function(d) { return rScale(d.LATU); })
+          .attr("fill", function(d) { return colorScale(d.LATU); })
+          .attr("opacity", 0.8);
+
+
+          function updateY(which) {
+            if (which === "LAT") {
+              cyScale.domain(nice10(d3.extent(data, d => d.LAT)));
+              yLabel.text("LAT");
+            } else {
+              cyScale.domain(nice10(d3.extent(data, d => d.LOAT)));
+              yLabel.text("LOAT (Cumulative)");
+        }
+
+            g.selectAll("circle")
+            .transition()
+            .duration(1000)
+            .attr("cy", d => cyScale(which === "LAT" ? d.LAT : d.LOAT));
+
+            yAxisG.transition()
+            .duration(1000)
+            .call(d3.axisLeft(cyScale));
+          }
+
+            d3.select("#LAT").on("click", () => updateY("LAT"));
+            d3.select("#LAT-cumulative").on("click", () => updateY("LOAT"));
+
+
+          }
+
+        
+        draw();
+
+    </script>
+</body>
+</html>
+
+
